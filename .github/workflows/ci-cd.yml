@@ -44,7 +44,7 @@ jobs:
         run: npm run test:ci
         
       - name: Upload frontend test coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           file: ./frontend/coverage/lcov.info
           flags: frontend
@@ -120,7 +120,7 @@ jobs:
           NODE_ENV: test
           
       - name: Upload backend test coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           file: ./backend/coverage/lcov.info
           flags: backend
