@@ -1,0 +1,989 @@
+# openapi.yaml - Complete API Documentation
+openapi: 3.0.3
+info:
+  title: AgentOrchestra API
+  description: |
+    AgentOrchestra is a comprehensive AI Agent Orchestration Platform that allows you to deploy, 
+    configure, and monitor AI agents across multiple frameworks including AutoGen, CrewAI, 
+    AutoGPT, BabyAGI, LangGraph, and more.
+    
+    ## Authentication
+    
+    The API uses two authentication methods:
+    - **Session Authentication**: For web application users via NextAuth.js
+    - **API Key Authentication**: For programmatic access using Bearer tokens
+    
+    ## Rate Limiting
+    
+    API endpoints are rate-limited to ensure fair usage:
+    - General API: 1000 requests per hour
+    - Execution endpoints: 100 requests per hour
+    - Authentication: 10 attempts per 15 minutes
+    
+    ## Webhooks
+    
+    Configure webhooks to receive real-time notifications about agent executions,
+    system events, and other important updates.
+    
+  version: 1.0.0
+  contact:
+    name: AgentOrchestra Support
+    email: support@agentorchestra.dev
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.agentorchestra.dev
+    description: Production server
+  - url: http://localhost:3000/api
+    description: Development server
+
+security:
+  - ApiKeyAuth: []
+  - SessionAuth: []
+
+paths:
+  # Agent Management
+  /agents:
+    get:
+      summary: List agents
+      description: Retrieve a paginated list of agents for the authenticated user
+      tags: [Agents]
+      parameters:
+        - name: framework
+          in: query
+          description: Filter by AI framework
+          schema:
+            $ref: '#/components/schemas/Framework'
+        - name: status
+          in: query
+          description: Filter by agent status
+          schema:
+            $ref: '#/components/schemas/AgentStatus'
+        - name: page
+          in: query
+          description: Page number (1-based)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agent'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      summary: Create agent
+      description: Create a new AI agent
+      tags: [Agents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAgentRequest'
+      responses:
+        '201':
+          description: Agent created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /agents/{id}:
+    get:
+      summary: Get agent
+      description: Retrieve detailed information about a specific agent
+      tags: [Agents]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Agent ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentDetailed'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Update agent
+      description: Update an existing agent
+      tags: [Agents]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAgentRequest'
+      responses:
+        '200':
+          description: Agent updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+
+    delete:
+      summary: Delete agent
+      description: Delete an agent and all associated executions
+      tags: [Agents]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Agent deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Execution Management
+  /executions:
+    get:
+      summary: List executions
+      description: Retrieve execution history with filtering options
+      tags: [Executions]
+      parameters:
+        - name: agentId
+          in: query
+          description: Filter by agent ID
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by execution status
+          schema:
+            $ref: '#/components/schemas/ExecutionStatus'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  executions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Execution'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      summary: Start execution
+      description: Start a new agent execution
+      tags: [Executions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartExecutionRequest'
+      responses:
+        '201':
+          description: Execution started successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  executionId:
+                    type: string
+                  status:
+                    type: string
+                    enum: [started]
+                  message:
+                    type: string
+
+  /executions/{id}:
+    get:
+      summary: Get execution
+      description: Retrieve detailed execution information including logs
+      tags: [Executions]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionDetailed'
+
+    delete:
+      summary: Cancel execution
+      description: Cancel a running or pending execution
+      tags: [Executions]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Execution cancelled successfully
+
+  /executions/{id}/logs:
+    get:
+      summary: Get execution logs
+      description: Retrieve logs for a specific execution
+      tags: [Executions]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: level
+          in: query
+          description: Filter by log level
+          schema:
+            $ref: '#/components/schemas/LogLevel'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ExecutionLog'
+                  pagination:
+                    type: object
+                    properties:
+                      offset:
+                        type: integer
+                      limit:
+                        type: integer
+                      total:
+                        type: integer
+                      hasMore:
+                        type: boolean
+
+  /executions/{id}/stream:
+    get:
+      summary: Stream execution updates
+      description: Server-sent events stream for real-time execution updates
+      tags: [Executions]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  # Configuration Management
+  /configurations:
+    get:
+      summary: List configurations
+      description: Retrieve saved agent configurations and templates
+      tags: [Configurations]
+      parameters:
+        - name: framework
+          in: query
+          schema:
+            $ref: '#/components/schemas/Framework'
+        - name: template
+          in: query
+          description: Filter templates only
+          schema:
+            type: boolean
+        - name: public
+          in: query
+          description: Include public configurations
+          schema:
+            type: boolean
+        - name: search
+          in: query
+          description: Search by name or description
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configurations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Configuration'
+
+    post:
+      summary: Save configuration
+      description: Save a new agent configuration
+      tags: [Configurations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveConfigurationRequest'
+      responses:
+        '201':
+          description: Configuration saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Configuration'
+
+  # Webhook Management
+  /webhooks:
+    get:
+      summary: List webhooks
+      description: Retrieve user's webhook endpoints
+      tags: [Webhooks]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhooks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Webhook'
+
+    post:
+      summary: Create webhook
+      description: Register a new webhook endpoint
+      tags: [Webhooks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWebhookRequest'
+      responses:
+        '201':
+          description: Webhook created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  message:
+                    type: string
+
+  # Analytics & Dashboard
+  /dashboard/metrics:
+    get:
+      summary: Get dashboard metrics
+      description: Retrieve dashboard analytics and metrics
+      tags: [Analytics]
+      parameters:
+        - name: timeframe
+          in: query
+          description: Time period for metrics
+          schema:
+            type: string
+            enum: [24h, 7d, 30d, 90d]
+            default: 30d
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardMetrics'
+
+  /dashboard/real-time:
+    get:
+      summary: Real-time metrics stream
+      description: Server-sent events for real-time dashboard updates
+      tags: [Analytics]
+      responses:
+        '200':
+          description: Event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  # Health & Status
+  /health:
+    get:
+      summary: Health check
+      description: Get system health status
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: 'ao_[64-char-hex]'
+      description: API key authentication using Bearer token
+    SessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+      description: Session-based authentication for web applications
+
+  schemas:
+    # Agent Schemas
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        framework:
+          $ref: '#/components/schemas/Framework'
+        status:
+          $ref: '#/components/schemas/AgentStatus'
+        configuration:
+          type: object
+        tags:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+        totalExecutions:
+          type: integer
+        successfulExecutions:
+          type: integer
+        avgExecutionTime:
+          type: number
+        lastExecutedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AgentDetailed:
+      allOf:
+        - $ref: '#/components/schemas/Agent'
+        - type: object
+          properties:
+            executions:
+              type: array
+              items:
+                $ref: '#/components/schemas/Execution'
+            _count:
+              type: object
+              properties:
+                executions:
+                  type: integer
+
+    CreateAgentRequest:
+      type: object
+      required: [name, framework]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+        framework:
+          $ref: '#/components/schemas/Framework'
+        configuration:
+          type: object
+        tags:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateAgentRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+        configuration:
+          type: object
+        tags:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+
+    Framework:
+      type: string
+      enum:
+        - autogen
+        - metagpt
+        - crewai
+        - autogpt
+        - babyagi
+        - langgraph
+        - camelai
+        - agentverse
+        - openagents
+        - miniagi
+        - orca
+
+    AgentStatus:
+      type: string
+      enum: [IDLE, RUNNING, PAUSED, ERROR, DEPLOYING, STOPPED]
+
+    # Execution Schemas
+    Execution:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          $ref: '#/components/schemas/ExecutionStatus'
+        input:
+          type: object
+        output:
+          type: object
+        error:
+          type: string
+        duration:
+          type: integer
+          description: Duration in milliseconds
+        tokensUsed:
+          type: integer
+        cost:
+          type: number
+        trigger:
+          type: string
+          enum: [manual, scheduled, webhook]
+        environment:
+          type: string
+          enum: [development, staging, production]
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        agent:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            framework:
+              $ref: '#/components/schemas/Framework'
+
+    ExecutionDetailed:
+      allOf:
+        - $ref: '#/components/schemas/Execution'
+        - type: object
+          properties:
+            logs:
+              type: array
+              items:
+                $ref: '#/components/schemas/ExecutionLog'
+
+    ExecutionLog:
+      type: object
+      properties:
+        id:
+          type: string
+        level:
+          $ref: '#/components/schemas/LogLevel'
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    StartExecutionRequest:
+      type: object
+      required: [agentId]
+      properties:
+        agentId:
+          type: string
+        input:
+          type: object
+        configuration:
+          type: object
+        environment:
+          type: string
+          enum: [development, staging, production]
+          default: development
+        trigger:
+          type: string
+          enum: [manual, scheduled, webhook]
+          default: manual
+
+    ExecutionStatus:
+      type: string
+      enum: [PENDING, RUNNING, COMPLETED, FAILED, CANCELLED, TIMEOUT]
+
+    LogLevel:
+      type: string
+      enum: [DEBUG, INFO, WARN, ERROR, FATAL]
+
+    # Configuration Schemas
+    Configuration:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        framework:
+          $ref: '#/components/schemas/Framework'
+        configuration:
+          type: object
+        isTemplate:
+          type: boolean
+        isPublic:
+          type: boolean
+        usageCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        user:
+          type: object
+          properties:
+            name:
+              type: string
+            image:
+              type: string
+
+    SaveConfigurationRequest:
+      type: object
+      required: [name, framework, configuration]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+        framework:
+          $ref: '#/components/schemas/Framework'
+        configuration:
+          type: object
+        isTemplate:
+          type: boolean
+          default: false
+        isPublic:
+          type: boolean
+          default: false
+
+    # Webhook Schemas
+    Webhook:
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+        secret:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateWebhookRequest:
+      type: object
+      required: [url, events]
+      properties:
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        secret:
+          type: string
+
+    # Analytics Schemas
+    DashboardMetrics:
+      type: object
+      properties:
+        overview:
+          type: object
+          properties:
+            activeAgents:
+              type: object
+              properties:
+                value:
+                  type: integer
+                change:
+                  type: number
+                trend:
+                  type: string
+                  enum: [up, down]
+            frameworks:
+              type: object
+              properties:
+                value:
+                  type: integer
+                change:
+                  type: integer
+            executions:
+              type: object
+              properties:
+                value:
+                  type: integer
+                change:
+                  type: number
+                trend:
+                  type: string
+                  enum: [up, down]
+            savedConfigs:
+              type: object
+              properties:
+                value:
+                  type: integer
+                change:
+                  type: integer
+        charts:
+          type: object
+          properties:
+            executionTrends:
+              type: array
+              items:
+                type: object
+            frameworkDistribution:
+              type: array
+              items:
+                type: object
+            performance:
+              type: object
+        recentActivity:
+          type: array
+          items:
+            $ref: '#/components/schemas/Execution'
+
+    # System Schemas
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        uptime:
+          type: integer
+          description: Uptime in milliseconds
+        checks:
+          type: object
+          properties:
+            database:
+              $ref: '#/components/schemas/HealthCheck'
+            redis:
+              $ref: '#/components/schemas/HealthCheck'
+            queues:
+              $ref: '#/components/schemas/HealthCheck'
+            email:
+              $ref: '#/components/schemas/HealthCheck'
+            storage:
+              $ref: '#/components/schemas/HealthCheck'
+            external_apis:
+              $ref: '#/components/schemas/HealthCheck'
+        metrics:
+          type: object
+
+    HealthCheck:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pass, warn, fail]
+        responseTime:
+          type: number
+          description: Response time in milliseconds
+        message:
+          type: string
+        details:
+          type: object
+
+    # Common Schemas
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+tags:
+  - name: Agents
+    description: AI agent management operations
+  - name: Executions
+    description: Agent execution and monitoring
+  - name: Configurations
+    description: Configuration templates and saved settings
+  - name: Webhooks
+    description: Webhook endpoint management
+  - name: Analytics
+    description: Dashboard metrics and analytics
+  - name: System
+    description: System health and status
