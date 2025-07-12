@@ -1,19 +1,15 @@
+const executionQueue: any[] = []
+const webhookQueue: any[] = []
+
 export const setupBackgroundJobs = () => {
-  console.log('Background jobs service initialized');
-  
-  // Placeholder for background job setup
-  // This would typically set up Bull queues for:
-  // - Execution queue
-  // - Webhook queue  
-  // - Notification queue
-  // - Cleanup queue
-  
   return {
     addExecutionJob: (data: any) => {
-      console.log('Adding execution job:', data);
+      executionQueue.push(data)
+      // In production, this would enqueue a job in Bull/Redis
     },
     addWebhookJob: (data: any) => {
-      console.log('Adding webhook job:', data);
+      webhookQueue.push(data)
+      // In production, this would enqueue a job in Bull/Redis
     }
-  };
-};
+  }
+}
