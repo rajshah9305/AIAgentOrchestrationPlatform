@@ -29,7 +29,7 @@ jobs:
           
       - name: Install frontend dependencies
         working-directory: ./frontend
-        run: npm install
+        run: npm ci
         
       - name: Run frontend linting
         working-directory: ./frontend
@@ -94,9 +94,19 @@ jobs:
         working-directory: ./backend
         run: npm ci
         
+      - name: Verify ESLint dependencies
+        working-directory: ./backend
+        run: |
+          echo "Checking ESLint dependencies..."
+          npm list eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin
+          echo "ESLint version: $(npx eslint --version)"
+        
       - name: Run backend linting
         working-directory: ./backend
-        run: npm run lint
+        run: |
+          # Clear any cached ESLint config
+          rm -rf node_modules/.cache
+          npm run lint
         
       - name: Run backend type checking
         working-directory: ./backend
@@ -145,7 +155,7 @@ jobs:
           
       - name: Install frontend dependencies
         working-directory: ./frontend
-        run: npm install
+        run: npm ci
         
       - name: Build frontend
         working-directory: ./frontend
