@@ -1,282 +1,281 @@
-# 🚀 AI Agent Orchestrator
+# AI Agent Orchestrator
 
-> **Ultra-Fast AI Agent Management Platform with Cerebras Integration**
+A comprehensive AI agent orchestration platform with Cerebras integration, featuring a modern React/Three.js frontend and a robust Express/TypeScript backend.
 
-A modern, production-ready AI agent orchestration platform that delivers **50x faster** responses than traditional APIs at **50x lower cost**. Built with Next.js, Express, and powered by Cerebras ultra-fast inference.
+## 🚀 Features
 
-![AI Agent Orchestrator Dashboard](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
-![Next.js](https://img.shields.io/badge/Next.js-14.2.16-black)
-![React](https://img.shields.io/badge/React-18.2.0-blue)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.3.3-blue)
-![Cerebras](https://img.shields.io/badge/Cerebras-Ultra%20Fast-orange)
-
-## ✨ Features
-
-### ⚡ Ultra-Fast Performance
-- **50x faster** than traditional AI APIs
-- **Real-time streaming** responses
-- **Sub-second** response times
-- **2000+ tokens/second** processing
-
-### 💰 Cost-Effective
-- **$0.60 per 1M tokens** (vs $30 for GPT-4)
-- **50x cheaper** than premium models
-- Transparent cost tracking & analytics
-
-### 🎯 Advanced Capabilities
-- **Multi-agent conversations** with lightning speed
-- **Real-time WebSocket** communication
-- **Background job processing**
-- **Webhook system** for integrations
-- **Modern 3D UI** with dark theme
-
-### 🤖 Supported Models
-- **llama-4-scout-17b-16e-instruct** - Latest high-performance model
-- **llama-3.1-70b-instruct** - Complex reasoning tasks
-- **llama-3.1-8b-instruct** - Balanced speed/quality
-- **mixtral-8x7b-instruct** - Long context (32K tokens)
-- **gemma-7b-it** - Instruction-tuned model
+- **AI Agent Orchestration**: Manage and execute AI agents with advanced configuration options
+- **Cerebras Integration**: Seamless integration with Cerebras AI models for ultra-fast inference
+- **Real-time Dashboard**: Interactive 3D visualization with Three.js
+- **Multi-Framework Support**: Execute agents across different AI frameworks (AutoGen, CrewAI, AutoGPT, BabyAGI, LangGraph)
+- **WebSocket Real-time Updates**: Live status updates and notifications
+- **Background Job Processing**: Scalable job queue with Bull and Redis
+- **Comprehensive API**: RESTful API with authentication and rate limiting
+- **Production Ready**: Docker support, CI/CD pipeline, and deployment scripts
+- **Modern UI**: Responsive design with dark theme and 3D elements
 
 ## 🏗️ Architecture
 
 ```
-AIAgentOrchestrator/
-├── frontend/                 # Next.js 14 Frontend
-│   ├── app/                 # App Router
-│   ├── components/          # React Components
-│   ├── lib/                 # Utilities
-│   └── public/              # Static Assets
-├── backend/                 # Express.js Backend
+├── frontend/                 # React/Next.js frontend
+│   ├── app/                 # Next.js app directory
+│   ├── components/          # React components
+│   ├── hooks/              # Custom React hooks
+│   ├── lib/                # Utility libraries
+│   └── public/             # Static assets
+├── backend/                 # Express/TypeScript backend
 │   ├── src/
-│   │   ├── api/            # API Routes
-│   │   ├── lib/            # Core Libraries
-│   │   ├── middleware/     # Express Middleware
-│   │   └── services/       # Business Logic
-│   └── prisma/             # Database Schema
-└── docs/                   # Documentation
+│   │   ├── api/            # API routes
+│   │   ├── services/       # Business logic services
+│   │   ├── middleware/     # Express middleware
+│   │   ├── models/         # Data models
+│   │   └── utils/          # Utility functions
+│   └── prisma/             # Database schema and migrations
+├── docs/                   # Documentation
+├── scripts/                # Deployment and utility scripts
+└── .github/                # GitHub Actions workflows
 ```
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **React 18** with TypeScript
+- **Next.js 14** with App Router
+- **Three.js** for 3D visualizations
+- **React Three Fiber** for React Three.js integration
+- **Tailwind CSS** for styling
+- **Radix UI** for accessible components
+- **Zustand** for state management
+- **Socket.io Client** for real-time updates
+
+### Backend
+- **Node.js** with TypeScript
+- **Express.js** web framework
+- **Prisma** ORM with PostgreSQL
+- **Redis** for caching and job queues
+- **Bull** for background job processing
+- **Socket.io** for WebSocket connections
+- **JWT** for authentication
+- **Winston** for logging
+- **Zod** for validation
+
+### Infrastructure
+- **Docker** for containerization
+- **GitHub Actions** for CI/CD
+- **Vercel** for frontend deployment
+- **Railway** for backend deployment
+- **PostgreSQL** for database
+- **Redis** for caching
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+ 
-- npm or pnpm
-- Cerebras API key
+- Node.js 18 or higher
+- npm or yarn
+- Docker (optional)
+- PostgreSQL database
+- Redis instance
 
-### 1. Clone the Repository
+### One-Click Setup
+
+**For immediate deployment and testing:**
+
 ```bash
-git clone https://github.com/yourusername/ai-agent-orchestrator.git
+# Clone the repository
+git clone https://github.com/your-username/ai-agent-orchestrator.git
 cd ai-agent-orchestrator
+
+# Run the automated setup script
+./setup.sh
 ```
 
-### 2. Frontend Setup
-```bash
-cd frontend
-npm install
-cp .env.example .env.local
-npm run dev
-```
+This script will:
+- ✅ Check all prerequisites
+- ✅ Generate environment files
+- ✅ Install all dependencies
+- ✅ Setup database and seed data
+- ✅ Build both applications
+- ✅ Run all tests
+- ✅ Verify code quality
 
-### 3. Backend Setup
-```bash
-cd backend
-npm install
-cp .env.example .env
-# Add your Cerebras API key to .env
-npm run dev
-```
+### Manual Setup
 
-### 4. Access the Application
-- **Frontend:** http://localhost:3000
-- **Backend API:** http://localhost:3002
-- **Health Check:** http://localhost:3002/health
+If you prefer manual setup:
 
-## 🔧 Environment Configuration
-
-### Frontend (.env.local)
-```env
-NEXT_PUBLIC_API_URL=http://localhost:3002
-NEXT_PUBLIC_WS_URL=ws://localhost:3002
-```
-
-### Backend (.env)
-```env
-# Database
-DATABASE_URL="postgresql://username:password@localhost:5432/agentorchestra"
-DIRECT_URL="postgresql://username:password@localhost:5432/agentorchestra"
-
-# JWT Authentication
-JWT_SECRET="your-super-secret-jwt-key-here"
-JWT_EXPIRES_IN="7d"
-
-# Cerebras AI
-CEREBRAS_API_KEY="your-cerebras-api-key"
-
-# Application
-NODE_ENV="development"
-PORT="3002"
-FRONTEND_URL="http://localhost:3000"
-
-# Security
-CORS_ORIGIN="http://localhost:3000"
-RATE_LIMIT_WINDOW_MS="900000"
-RATE_LIMIT_MAX_REQUESTS="100"
-```
-
-## 🎯 API Endpoints
-
-### Core Endpoints
-- `GET /api` - API information
-- `GET /health` - Health check
-- `POST /api/agents/:id/execute` - Execute agent
-- `POST /api/agents/:id/execute/stream` - Streaming execution
-
-### Cerebras Integration
-- `GET /api/cerebras/models` - Available models
-- `POST /api/cerebras/test` - Test connection
-
-### WebSocket Events
-- `execution_started` - Agent execution started
-- `execution_progress` - Execution progress updates
-- `execution_completed` - Execution finished
-
-## 🚀 Deployment
-
-### Vercel Deployment (Recommended)
-
-1. **Connect to GitHub**
+1. **Clone the repository**
    ```bash
-   # Push to GitHub
-   git add .
-   git commit -m "Initial commit"
-   git push origin main
+   git clone https://github.com/your-username/ai-agent-orchestrator.git
+   cd ai-agent-orchestrator
    ```
 
-2. **Deploy Frontend**
-   - Connect your GitHub repo to Vercel
-   - Set root directory to `frontend`
-   - Add environment variables in Vercel dashboard
+2. **Install dependencies**
+   ```bash
+   # Install frontend dependencies
+   cd frontend
+   npm install
+   cd ..
+   
+   # Install backend dependencies
+   cd backend
+   npm install
+   cd ..
+   ```
 
-3. **Deploy Backend**
-   - Use Vercel Functions or deploy to Railway/Render
-   - Set environment variables
-   - Update frontend API URL
+3. **Setup environment variables**
+   ```bash
+   # Copy environment templates
+   cp backend/env.example backend/.env
+   cp frontend/env.example frontend/.env.local
+   
+   # Edit the files with your actual values
+   nano backend/.env
+   nano frontend/.env.local
+   ```
 
-### Railway Deployment
+4. **Setup database**
+   ```bash
+   cd backend
+   npm run db:generate
+   npm run db:push
+   npm run db:seed
+   cd ..
+   ```
 
+5. **Start development servers**
+   ```bash
+   # Frontend (in one terminal)
+   cd frontend
+   npm run dev
+   
+   # Backend (in another terminal)
+   cd backend
+   npm run dev
+   ```
+
+6. **Access the application**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:3001
+   - API Documentation: http://localhost:3001/api
+
+## 🐳 Docker Deployment
+
+### Using Docker Compose
 ```bash
-# Install Railway CLI
-npm install -g @railway/cli
+# Build and start all services
+docker-compose up -d --build
 
-# Deploy backend
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+### Individual Docker Images
+```bash
+# Build frontend
+cd frontend
+docker build -t ai-agent-orchestrator-frontend .
+
+# Build backend
 cd backend
-railway login
-railway init
+docker build -t ai-agent-orchestrator-backend .
+```
+
+## 🚀 Production Deployment
+
+### Automated Deployment
+```bash
+# Run complete deployment
+./deploy.sh --all
+
+# Check prerequisites only
+./deploy.sh --check-prerequisites
+
+# Deploy to specific platforms
+./deploy.sh --vercel    # Deploy frontend to Vercel
+./deploy.sh --railway   # Deploy backend to Railway
+```
+
+### Manual Deployment
+
+#### Frontend (Vercel)
+```bash
+cd frontend
+npm run build
+vercel --prod
+```
+
+#### Backend (Railway)
+```bash
+cd backend
+npm run build
 railway up
 ```
 
-### Docker Deployment
-
-```bash
-# Build and run with Docker Compose
-docker-compose up -d
-```
-
-## 🛠️ Development
-
-### Available Scripts
-
-#### Frontend
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint
-npm run type-check   # TypeScript type checking
-```
-
-#### Backend
-```bash
-npm run dev          # Start development server
-npm run build        # Build TypeScript
-npm run start        # Start production server
-npm run lint         # Run ESLint
-npm run db:generate  # Generate Prisma client
-npm run db:push      # Push database schema
-```
-
-### Database Setup
-
-```bash
-cd backend
-npm run db:generate
-npm run db:push
-npm run db:seed
-```
-
-## 🎨 UI Components
-
-### Modern Design System
-- **Dark Theme** with orange accents
-- **3D Background** with Three.js
-- **Responsive Design** for all devices
-- **Smooth Animations** and transitions
-
-### Key Components
-- `Dashboard` - Main agent management interface
-- `AgentCard` - Individual agent display
-- `ExecutionPanel` - Real-time execution monitoring
-- `ConfigurationPanel` - Agent configuration
-- `MetricsCards` - Performance analytics
-
-## 🔒 Security Features
-
-- **JWT Authentication** with secure tokens
-- **Rate Limiting** to prevent abuse
-- **CORS Protection** for cross-origin requests
-- **Helmet.js** for security headers
-- **Input Validation** with Zod schemas
-- **SQL Injection Protection** with Prisma
-
-## 📊 Monitoring & Analytics
-
-- **Real-time Health Monitoring**
-- **Performance Metrics** tracking
-- **Cost Analytics** for AI usage
-- **Error Logging** and alerting
-- **WebSocket Connection** monitoring
-
 ## 🧪 Testing
 
+### Frontend Tests
 ```bash
-# Frontend tests
-npm run test
-
-# Backend tests
-cd backend
-npm run test
-
-# E2E tests
-npm run test:e2e
+cd frontend
+npm run test           # Run tests
+npm run test:watch     # Run tests in watch mode
+npm run test:coverage  # Run tests with coverage
 ```
 
-## 📈 Performance Benchmarks
+### Backend Tests
+```bash
+cd backend
+npm run test           # Run tests
+npm run test:watch     # Run tests in watch mode
+npm run test:coverage  # Run tests with coverage
+```
 
-| Metric | AI Agent Orchestrator | Traditional APIs |
-|--------|----------------------|------------------|
-| **Response Time** | 0.5s | 2-5s |
-| **Tokens/Second** | 2000+ | 500-1000 |
-| **Cost per 1M tokens** | $0.60 | $15-30 |
-| **Streaming Support** | ✅ Real-time | ❌ Delayed |
+## 📚 API Documentation
+
+The API documentation is available at `/api` when the backend is running.
+
+### Key Endpoints
+- `POST /api/agents/execute` - Execute an AI agent
+- `GET /api/agents/status/:id` - Get agent execution status
+- `POST /api/configurations/save` - Save agent configuration
+- `GET /api/configurations/templates` - Get configuration templates
+- `POST /api/webhooks/register` - Register webhook endpoints
+
+## 🔧 Configuration
+
+### Environment Variables
+
+#### Frontend (.env.local)
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_WS_URL=ws://localhost:3001
+NEXT_PUBLIC_CEREBRAS_API_KEY=your_cerebras_api_key
+```
+
+#### Backend (.env)
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/ai_orchestrator
+REDIS_URL=redis://localhost:6379
+JWT_SECRET=your_jwt_secret
+CEREBRAS_API_KEY=your_cerebras_api_key
+CEREBRAS_API_URL=https://api.cerebras.com
+```
 
 ## 🤝 Contributing
 
-This is a personal project for personal use. However, if you find bugs or have suggestions:
-
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Development Guidelines
+- Follow TypeScript best practices
+- Write comprehensive tests
+- Update documentation for new features
+- Follow the existing code style
+- Ensure all tests pass before submitting PR
 
 ## 📄 License
 
@@ -284,20 +283,28 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-For issues and questions:
-- Check the [documentation](docs/)
-- Review [API documentation](docs/api.md)
-- Open an issue on GitHub
+- **Documentation**: Check the [docs/](docs/) directory
+- **Issues**: Report bugs and feature requests on [GitHub Issues](https://github.com/your-username/ai-agent-orchestrator/issues)
+- **Discussions**: Join the conversation on [GitHub Discussions](https://github.com/your-username/ai-agent-orchestrator/discussions)
 
-## 🎉 Acknowledgments
+## 🗺️ Roadmap
 
-- **Cerebras** for ultra-fast AI inference
-- **Next.js** for the amazing React framework
-- **Three.js** for 3D graphics
-- **Prisma** for database management
+- [ ] Multi-tenant support
+- [ ] Advanced agent scheduling
+- [ ] Agent marketplace
+- [ ] Performance analytics dashboard
+- [ ] Mobile application
+- [ ] Advanced security features
+- [ ] Integration with more AI frameworks
+
+## 🙏 Acknowledgments
+
+- [Cerebras](https://www.cerebras.net/) for AI model integration
+- [Three.js](https://threejs.org/) for 3D graphics
+- [Prisma](https://www.prisma.io/) for database ORM
+- [Vercel](https://vercel.com/) for frontend hosting
+- [Railway](https://railway.app/) for backend hosting
 
 ---
 
-**Built with ❤️ for ultra-fast AI experiences**
-
-*Ready to deploy and scale your AI applications with lightning speed! ⚡* 
+**Made with ❤️ by the AI Agent Orchestrator Team** 

@@ -1,0 +1,379 @@
+// backend/prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// User model with enhanced fields
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  emailVerified   DateTime?
+  name            String?
+  image           String?
+  hashedPassword  String?
+  role            Role      @default(USER)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  lastLoginAt     DateTime?
+  
+  // Relations
+  accounts        Account[]
+  sessions        Session[]
+  agents          Agent[]
+  executions      Execution[]
+  apiKeys         ApiKey[]
+  webhooks        Webhook[]
+  configurations  SavedConfiguration[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  usageMetrics    UsageMetric[]
+  
+  @@index([email])
+  @@index([createdAt])
+}
+
+// OAuth account model
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// Session model
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+// Agent model with enhanced fields
+model Agent {
+  id            String      @id @default(cuid())
+  userId        String
+  name          String
+  description   String?
+  framework     Framework
+  configuration Json
+  tags          String[]
+  isPublic      Boolean     @default(false)
+  isActive      Boolean     @default(true)
+  version       Int         @default(1)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  // Relations
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  executions    Execution[]
+  metrics       AgentMetric[]
+  
+  @@index([userId])
+  @@index([framework])
+  @@index([isPublic])
+  @@index([createdAt])
+}
+
+// Execution model with enhanced fields
+model Execution {
+  id          String          @id @default(cuid())
+  agentId     String
+  userId      String
+  input       Json
+  output      Json?
+  error       String?
+  status      ExecutionStatus @default(PENDING)
+  priority    Priority        @default(NORMAL)
+  metadata    Json?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  
+  // Relations
+  agent       Agent           @relation(fields: [agentId], references: [id])
+  user        User            @relation(fields: [userId], references: [id])
+  logs        ExecutionLog[]
+  metrics     ExecutionMetric[]
+  
+  @@index([agentId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Execution log model
+model ExecutionLog {
+  id          String   @id @default(cuid())
+  executionId String
+  level       LogLevel
+  message     String
+  metadata    Json?
+  timestamp   DateTime @default(now())
+  
+  execution Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  
+  @@index([executionId])
+  @@index([timestamp])
+}
+
+// API Key model
+model ApiKey {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  key         String    @unique
+  permissions String[]
+  isActive    Boolean   @default(true)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usageLogs   ApiUsageLog[]
+  
+  @@index([userId])
+  @@index([key])
+}
+
+// API Usage Log
+model ApiUsageLog {
+  id         String   @id @default(cuid())
+  apiKeyId   String
+  endpoint   String
+  method     String
+  statusCode Int
+  ip         String
+  userAgent  String?
+  timestamp  DateTime @default(now())
+  
+  apiKey ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  
+  @@index([apiKeyId])
+  @@index([timestamp])
+}
+
+// Webhook model
+model Webhook {
+  id        String        @id @default(cuid())
+  userId    String
+  url       String
+  events    String[]
+  secret    String
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs      WebhookLog[]
+  
+  @@index([userId])
+}
+
+// Webhook log
+model WebhookLog {
+  id         String   @id @default(cuid())
+  webhookId  String
+  event      String
+  payload    Json
+  statusCode Int?
+  error      String?
+  timestamp  DateTime @default(now())
+  
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  
+  @@index([webhookId])
+  @@index([timestamp])
+}
+
+// Saved configuration model
+model SavedConfiguration {
+  id            String    @id @default(cuid())
+  userId        String
+  name          String
+  description   String?
+  framework     Framework
+  configuration Json
+  isTemplate    Boolean   @default(false)
+  isPublic      Boolean   @default(false)
+  usageCount    Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([framework])
+  @@index([isTemplate])
+  @@index([isPublic])
+}
+
+// Audit log model
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String
+  resourceType String
+  resourceId String
+  details    Json?
+  ip         String?
+  userAgent  String?
+  timestamp  DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([action])
+  @@index([resourceType])
+  @@index([timestamp])
+}
+
+// Notification model
+model Notification {
+  id        String            @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+// Usage metrics
+model UsageMetric {
+  id              String   @id @default(cuid())
+  userId          String
+  date            DateTime @db.Date
+  executionCount  Int      @default(0)
+  totalTokens     Int      @default(0)
+  totalCost       Decimal  @default(0) @db.Decimal(10, 4)
+  
+  user User @relation(fields: [userId], references: [id])
+  
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+// Agent metrics
+model AgentMetric {
+  id                String   @id @default(cuid())
+  agentId           String
+  date              DateTime @db.Date
+  executionCount    Int      @default(0)
+  successCount      Int      @default(0)
+  failureCount      Int      @default(0)
+  avgExecutionTime  Int      @default(0) // in milliseconds
+  totalTokens       Int      @default(0)
+  
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  
+  @@unique([agentId, date])
+  @@index([agentId])
+  @@index([date])
+}
+
+// Execution metrics
+model ExecutionMetric {
+  id           String    @id @default(cuid())
+  executionId  String
+  metricName   String
+  metricValue  Float
+  unit         String?
+  timestamp    DateTime  @default(now())
+  
+  execution Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  
+  @@index([executionId])
+  @@index([metricName])
+}
+
+// Enums
+enum Role {
+  USER
+  ADMIN
+  DEVELOPER
+}
+
+enum Framework {
+  AUTOGEN
+  METAGPT
+  CREWAI
+  AUTOGPT
+  BABYAGI
+  LANGGRAPH
+  CAMELAI
+  AGENTVERSE
+  OPENAGENTS
+  MINIAGI
+  ORCA
+  CEREBRAS
+  CEREBRAS_AUTOGEN
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  EXECUTION_STARTED
+  EXECUTION_COMPLETED
+  EXECUTION_FAILED
+  AGENT_CREATED
+  AGENT_UPDATED
+  API_KEY_CREATED
+  WEBHOOK_TRIGGERED
+}

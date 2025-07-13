@@ -1,5 +1,4 @@
-// lib/ai-providers/cerebras-client.ts
-import { Cerebras } from '@cerebras/cloud-sdk'
+import axios from 'axios'
 
 export interface CerebrasConfig {
   apiKey: string
@@ -46,14 +45,18 @@ export interface CerebrasStreamChunk {
 }
 
 export class CerebrasClient {
-  private client: Cerebras
+  private client: any
   private config: CerebrasConfig
 
   constructor(config: CerebrasConfig) {
-    this.config = config
-    this.client = new Cerebras({
-      apiKey: config.apiKey
-    })
+    this.config = {
+      model: 'llama-4-scout-17b-16e-instruct',
+      temperature: 0.7,
+      maxTokens: 1024,
+      topP: 1,
+      stream: false,
+      ...config
+    }
   }
 
   async createCompletion(
@@ -61,38 +64,31 @@ export class CerebrasClient {
     options?: Partial<CerebrasConfig>
   ): Promise<CerebrasResponse> {
     try {
-      const response = await this.client.chat.completions.create({
-        messages: messages.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        })),
-        model: options?.model || this.config.model || 'llama-4-scout-17b-16e-instruct',
-        temperature: options?.temperature ?? this.config.temperature ?? 0.2,
-        max_completion_tokens: options?.maxTokens || this.config.maxTokens || 2048,
-        top_p: options?.topP ?? this.config.topP ?? 1,
-        stream: false
-      })
-
-      return {
-        id: response.id,
-        choices: response.choices.map(choice => ({
-          index: choice.index || 0,
-          message: {
-            role: choice.message?.role || 'assistant',
-            content: choice.message?.content || ''
-          },
-          finish_reason: choice.finish_reason || 'stop'
-        })),
-        usage: {
-          prompt_tokens: response.usage?.prompt_tokens || 0,
-          completion_tokens: response.usage?.completion_tokens || 0,
-          total_tokens: response.usage?.total_tokens || 0
+      const response = await axios.post(
+        'https://api.cerebras.ai/v1/chat/completions',
+        {
+          model: options?.model || this.config.model,
+          messages: messages.map(msg => ({
+            role: msg.role,
+            content: msg.content
+          })),
+          temperature: options?.temperature || this.config.temperature,
+          max_tokens: options?.maxTokens || this.config.maxTokens,
+          top_p: options?.topP || this.config.topP,
+          stream: options?.stream || this.config.stream
         },
-        model: response.model || 'llama-4-scout-17b-16e-instruct'
-      }
+        {
+          headers: {
+            'Authorization': `Bearer ${this.config.apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+
+      return response.data
     } catch (error) {
       console.error('Cerebras API error:', error)
-      throw new Error(`Cerebras API error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      throw new Error('Failed to create completion')
     }
   }
 
@@ -102,140 +98,147 @@ export class CerebrasClient {
     options?: Partial<CerebrasConfig>
   ): Promise<void> {
     try {
-      const stream = await this.client.chat.completions.create({
-        messages: messages.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        })),
-        model: options?.model || this.config.model || 'llama-4-scout-17b-16e-instruct',
-        temperature: options?.temperature ?? this.config.temperature ?? 0.2,
-        max_completion_tokens: options?.maxTokens || this.config.maxTokens || 2048,
-        top_p: options?.topP ?? this.config.topP ?? 1,
-        stream: true
-      })
-
-      for await (const chunk of stream) {
-        const processedChunk: CerebrasStreamChunk = {
-          id: chunk.id,
-          choices: chunk.choices.map(choice => ({
-            index: choice.index || 0,
-            delta: {
-              content: choice.delta?.content,
-              role: choice.delta?.role
-            },
-            finish_reason: choice.finish_reason
-          }))
+      const response = await axios.post(
+        'https://api.cerebras.ai/v1/chat/completions',
+        {
+          model: options?.model || this.config.model,
+          messages: messages.map(msg => ({
+            role: msg.role,
+            content: msg.content
+          })),
+          temperature: options?.temperature || this.config.temperature,
+          max_tokens: options?.maxTokens || this.config.maxTokens,
+          top_p: options?.topP || this.config.topP,
+          stream: true
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.config.apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          responseType: 'stream'
         }
-        
-        onChunk(processedChunk)
-      }
+      )
+
+      // Handle streaming response
+      response.data.on('data', (chunk: Buffer) => {
+        const lines = chunk.toString().split('\n')
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6)
+            if (data === '[DONE]') return
+            
+            try {
+              const parsed = JSON.parse(data)
+              onChunk(parsed)
+            } catch (error) {
+              console.error('Error parsing stream chunk:', error)
+            }
+          }
+        }
+      })
     } catch (error) {
-      console.error('Cerebras streaming error:', error)
-      throw new Error(`Cerebras streaming error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Cerebras stream error:', error)
+      throw new Error('Failed to create stream completion')
     }
   }
 
   async getAvailableModels(): Promise<string[]> {
-    // Cerebras available models (update this list as new models become available)
-    return [
-      'llama-4-scout-17b-16e-instruct',
-      'llama-3.1-8b-instruct',
-      'llama-3.1-70b-instruct',
-      'mixtral-8x7b-instruct',
-      'gemma-7b-it'
-    ]
+    try {
+      const response = await axios.get(
+        'https://api.cerebras.ai/v1/models',
+        {
+          headers: {
+            'Authorization': `Bearer ${this.config.apiKey}`
+          }
+        }
+      )
+      
+      return response.data.data.map((model: any) => model.id)
+    } catch (error) {
+      console.error('Error fetching Cerebras models:', error)
+      return []
+    }
   }
 
   validateConfig(): { valid: boolean; errors: string[] } {
     const errors: string[] = []
 
     if (!this.config.apiKey) {
-      errors.push('Cerebras API key is required')
+      errors.push('API key is required')
     }
 
-    if (this.config.temperature !== undefined) {
-      if (this.config.temperature < 0 || this.config.temperature > 2) {
-        errors.push('Temperature must be between 0 and 2')
-      }
+    if (this.config.temperature && (this.config.temperature < 0 || this.config.temperature > 2)) {
+      errors.push('Temperature must be between 0 and 2')
     }
 
-    if (this.config.maxTokens !== undefined) {
-      if (this.config.maxTokens < 1 || this.config.maxTokens > 8192) {
-        errors.push('Max tokens must be between 1 and 8192')
-      }
+    if (this.config.maxTokens && (this.config.maxTokens < 1 || this.config.maxTokens > 8192)) {
+      errors.push('Max tokens must be between 1 and 8192')
     }
 
-    if (this.config.topP !== undefined) {
-      if (this.config.topP < 0 || this.config.topP > 1) {
-        errors.push('Top P must be between 0 and 1')
-      }
+    if (this.config.topP && (this.config.topP < 0 || this.config.topP > 1)) {
+      errors.push('Top P must be between 0 and 1')
     }
 
-    return {
-      valid: errors.length === 0,
-      errors
-    }
+    return { valid: errors.length === 0, errors }
   }
 
   calculateCost(usage: { prompt_tokens: number; completion_tokens: number }): number {
-    // Cerebras pricing (update with actual pricing)
-    const PROMPT_COST_PER_TOKEN = 0.0000006  // $0.6 per 1M tokens
-    const COMPLETION_COST_PER_TOKEN = 0.0000006  // $0.6 per 1M tokens
+    // Cerebras pricing (example rates - check actual pricing)
+    const promptCostPerToken = 0.0001
+    const completionCostPerToken = 0.0002
     
-    return (
-      usage.prompt_tokens * PROMPT_COST_PER_TOKEN +
-      usage.completion_tokens * COMPLETION_COST_PER_TOKEN
-    )
+    return (usage.prompt_tokens * promptCostPerToken) + (usage.completion_tokens * completionCostPerToken)
   }
 }
 
-// lib/execution/frameworks/cerebras-powered.ts
-import { AgentFramework, FrameworkExecutionContext, FrameworkExecutionResult } from './base'
-import { CerebrasClient, CerebrasMessage } from '@/lib/ai-providers/cerebras-client'
+export interface FrameworkExecutionContext {
+  agentId: string
+  input: any
+  configuration: any
+  userId: string
+}
+
+export interface FrameworkExecutionResult {
+  success: boolean
+  output?: any
+  error?: string
+  logs?: string[]
+  metadata?: any
+}
+
+export interface AgentFramework {
+  execute(context: FrameworkExecutionContext): Promise<FrameworkExecutionResult>
+  validate(configuration: any): Promise<{ valid: boolean; errors: string[] }>
+  getSchema(): any
+}
 
 export class CerebrasPoweredExecutor implements AgentFramework {
   private cerebrasClient: CerebrasClient | null = null
 
   async execute(context: FrameworkExecutionContext): Promise<FrameworkExecutionResult> {
-    const { input, configuration, onLog, onProgress } = context
-
     try {
-      onLog({
-        level: 'INFO',
-        message: 'Starting Cerebras-powered agent execution',
-        timestamp: new Date()
-      })
-
-      onProgress(10)
-
+      const { configuration, input } = context
+      
       // Initialize Cerebras client
-      this.cerebrasClient = new CerebrasClient({
-        apiKey: configuration.cerebras_api_key || process.env.CEREBRAS_API_KEY!,
-        model: configuration.model || 'llama-4-scout-17b-16e-instruct',
-        temperature: configuration.temperature || 0.2,
-        maxTokens: configuration.max_tokens || 2048,
-        topP: configuration.top_p || 1
-      })
-
-      // Validate configuration
-      const validation = await this.validate(configuration)
-      if (!validation.valid) {
-        throw new Error(`Configuration invalid: ${validation.errors.join(', ')}`)
+      if (!this.cerebrasClient) {
+        this.cerebrasClient = new CerebrasClient({
+          apiKey: configuration.cerebras_api_key || process.env.CEREBRAS_API_KEY!,
+          model: configuration.model || 'llama-4-scout-17b-16e-instruct',
+          temperature: configuration.temperature || 0.7,
+          maxTokens: configuration.max_tokens || 1024
+        })
       }
 
-      onProgress(30)
-
       // Prepare messages
-      const messages: CerebrasMessage[] = [
-        {
+      const messages: CerebrasMessage[] = []
+      
+      // Add system message if provided
+      if (configuration.system_message) {
+        messages.push({
           role: 'system',
-          content: configuration.system_message || 'You are a helpful AI assistant powered by Cerebras ultra-fast inference.'
-        }
-      ]
-
-      // Add conversation history if provided
-      if (configuration.conversation_history) {
-        messages.push(...configuration.conversation_history)
+          content: configuration.system_message
+        })
       }
 
       // Add user input
@@ -249,118 +252,35 @@ export class CerebrasPoweredExecutor implements AgentFramework {
           role: 'user',
           content: input.message
         })
-      }
-
-      onProgress(50)
-
-      onLog({
-        level: 'INFO',
-        message: `Processing with Cerebras model: ${configuration.model || 'llama-4-scout-17b-16e-instruct'}`,
-        timestamp: new Date()
-      })
-
-      let response
-      let totalTokens = 0
-
-      if (configuration.stream) {
-        // Stream response
-        let fullContent = ''
-        
-        await this.cerebrasClient.createStreamCompletion(
-          messages,
-          (chunk) => {
-            const content = chunk.choices[0]?.delta?.content || ''
-            if (content) {
-              fullContent += content
-              onLog({
-                level: 'INFO',
-                message: `Streaming response: ${content}`,
-                timestamp: new Date()
-              })
-            }
-          },
-          {
-            model: configuration.model,
-            temperature: configuration.temperature,
-            maxTokens: configuration.max_tokens,
-            topP: configuration.top_p
-          }
-        )
-
-        response = {
-          id: 'cerebras-stream-' + Date.now(),
-          choices: [{
-            index: 0,
-            message: {
-              role: 'assistant',
-              content: fullContent
-            },
-            finish_reason: 'stop'
-          }],
-          usage: {
-            prompt_tokens: this.estimateTokens(messages.map(m => m.content).join(' ')),
-            completion_tokens: this.estimateTokens(fullContent),
-            total_tokens: 0
-          },
-          model: configuration.model || 'llama-4-scout-17b-16e-instruct'
-        }
-        
-        response.usage.total_tokens = response.usage.prompt_tokens + response.usage.completion_tokens
-        totalTokens = response.usage.total_tokens
-
       } else {
-        // Regular response
-        response = await this.cerebrasClient.createCompletion(messages, {
-          model: configuration.model,
-          temperature: configuration.temperature,
-          maxTokens: configuration.max_tokens,
-          topP: configuration.top_p
+        messages.push({
+          role: 'user',
+          content: JSON.stringify(input)
         })
-        
-        totalTokens = response.usage.total_tokens
       }
 
-      onProgress(90)
-
-      // Calculate cost
-      const cost = this.cerebrasClient.calculateCost(response.usage)
-
-      onLog({
-        level: 'INFO',
-        message: `Cerebras execution completed. Tokens used: ${totalTokens}, Cost: $${cost.toFixed(6)}`,
-        timestamp: new Date()
-      })
-
-      onProgress(100)
+      // Create completion
+      const response = await this.cerebrasClient.createCompletion(messages)
 
       return {
         success: true,
         output: {
-          response: response.choices[0].message.content,
+          content: response.choices[0].message.content,
           model: response.model,
           usage: response.usage,
-          messages: [...messages, response.choices[0].message],
-          metadata: {
-            provider: 'cerebras',
-            inference_time: 'ultra-fast',
-            finish_reason: response.choices[0].finish_reason
-          }
+          cost: this.cerebrasClient.calculateCost(response.usage)
         },
-        tokensUsed: totalTokens,
-        cost
+        metadata: {
+          model: response.model,
+          tokens_used: response.usage.total_tokens,
+          finish_reason: response.choices[0].finish_reason
+        }
       }
-
     } catch (error) {
-      onLog({
-        level: 'ERROR',
-        message: `Cerebras execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        timestamp: new Date(),
-        metadata: { error: error instanceof Error ? error.stack : undefined }
-      })
-
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        logs: [`Error: ${error instanceof Error ? error.message : 'Unknown error'}`]
       }
     }
   }
@@ -372,41 +292,19 @@ export class CerebrasPoweredExecutor implements AgentFramework {
       errors.push('Cerebras API key is required')
     }
 
-    if (configuration.model) {
-      const availableModels = await this.getAvailableModels()
-      if (!availableModels.includes(configuration.model)) {
-        errors.push(`Invalid model. Available models: ${availableModels.join(', ')}`)
-      }
+    if (configuration.model && !['llama-4-scout-17b-16e-instruct', 'llama-3.1-8b-instruct', 'llama-3.1-70b-instruct', 'mixtral-8x7b-instruct'].includes(configuration.model)) {
+      errors.push('Invalid model specified')
     }
 
-    if (configuration.temperature !== undefined) {
-      if (typeof configuration.temperature !== 'number' || 
-          configuration.temperature < 0 || 
-          configuration.temperature > 2) {
-        errors.push('Temperature must be a number between 0 and 2')
-      }
+    if (configuration.temperature && (configuration.temperature < 0 || configuration.temperature > 2)) {
+      errors.push('Temperature must be between 0 and 2')
     }
 
-    if (configuration.max_tokens !== undefined) {
-      if (typeof configuration.max_tokens !== 'number' || 
-          configuration.max_tokens < 1 || 
-          configuration.max_tokens > 8192) {
-        errors.push('Max tokens must be a number between 1 and 8192')
-      }
+    if (configuration.max_tokens && (configuration.max_tokens < 1 || configuration.max_tokens > 8192)) {
+      errors.push('Max tokens must be between 1 and 8192')
     }
 
-    if (configuration.top_p !== undefined) {
-      if (typeof configuration.top_p !== 'number' || 
-          configuration.top_p < 0 || 
-          configuration.top_p > 1) {
-        errors.push('Top P must be a number between 0 and 1')
-      }
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors
-    }
+    return { valid: errors.length === 0, errors }
   }
 
   getSchema(): any {
@@ -415,7 +313,7 @@ export class CerebrasPoweredExecutor implements AgentFramework {
       properties: {
         cerebras_api_key: {
           type: 'string',
-          description: 'Cerebras API key (optional if set in environment)'
+          description: 'Cerebras API key'
         },
         model: {
           type: 'string',
@@ -423,215 +321,109 @@ export class CerebrasPoweredExecutor implements AgentFramework {
             'llama-4-scout-17b-16e-instruct',
             'llama-3.1-8b-instruct',
             'llama-3.1-70b-instruct',
-            'mixtral-8x7b-instruct',
-            'gemma-7b-it'
+            'mixtral-8x7b-instruct'
           ],
-          default: 'llama-4-scout-17b-16e-instruct',
-          description: 'Cerebras model to use for inference'
+          default: 'llama-4-scout-17b-16e-instruct'
         },
         system_message: {
           type: 'string',
-          default: 'You are a helpful AI assistant powered by Cerebras ultra-fast inference.',
-          description: 'System message to set the assistant behavior'
+          description: 'System message to set context'
         },
         temperature: {
           type: 'number',
           minimum: 0,
           maximum: 2,
-          default: 0.2,
-          description: 'Controls randomness in the response'
+          default: 0.7
         },
         max_tokens: {
           type: 'number',
           minimum: 1,
           maximum: 8192,
-          default: 2048,
-          description: 'Maximum number of tokens to generate'
-        },
-        top_p: {
-          type: 'number',
-          minimum: 0,
-          maximum: 1,
-          default: 1,
-          description: 'Controls diversity via nucleus sampling'
-        },
-        stream: {
-          type: 'boolean',
-          default: false,
-          description: 'Whether to stream the response'
-        },
-        conversation_history: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              role: {
-                type: 'string',
-                enum: ['user', 'assistant', 'system']
-              },
-              content: {
-                type: 'string'
-              }
-            }
-          },
-          description: 'Previous conversation messages for context'
+          default: 1024
         }
       },
-      required: []
+      required: ['cerebras_api_key']
     }
-  }
-
-  private async getAvailableModels(): Promise<string[]> {
-    const client = new CerebrasClient({
-      apiKey: process.env.CEREBRAS_API_KEY || 'dummy'
-    })
-    return client.getAvailableModels()
-  }
-
-  private estimateTokens(text: string): number {
-    // Simple estimation: ~4 characters per token
-    return Math.ceil(text.length / 4)
   }
 }
 
-// lib/execution/frameworks/cerebras-autogen.ts
-import { AgentFramework, FrameworkExecutionContext, FrameworkExecutionResult } from './base'
-import { CerebrasClient, CerebrasMessage } from '@/lib/ai-providers/cerebras-client'
-
 export class CerebrasAutoGenExecutor implements AgentFramework {
   async execute(context: FrameworkExecutionContext): Promise<FrameworkExecutionResult> {
-    const { input, configuration, onLog, onProgress } = context
-
     try {
-      onLog({
-        level: 'INFO',
-        message: 'Starting Cerebras-powered AutoGen multi-agent execution',
-        timestamp: new Date()
-      })
-
-      onProgress(10)
-
+      const { configuration, input } = context
+      
       // Initialize Cerebras client
       const cerebrasClient = new CerebrasClient({
         apiKey: configuration.cerebras_api_key || process.env.CEREBRAS_API_KEY!,
         model: configuration.model || 'llama-4-scout-17b-16e-instruct',
-        temperature: configuration.temperature || 0.2
+        temperature: configuration.temperature || 0.7,
+        maxTokens: configuration.max_tokens || 1024
       })
 
+      // Validate configuration
+      const validation = await this.validate(configuration)
+      if (!validation.valid) {
+        return {
+          success: false,
+          error: `Configuration validation failed: ${validation.errors.join(', ')}`
+        }
+      }
+
+      // Simulate multi-agent conversation
       const agents = configuration.agents || []
       const maxRounds = configuration.max_rounds || 5
       const conversation: any[] = []
+      
+      // Add initial user message
+      if (typeof input === 'string') {
+        conversation.push({ role: 'user', content: input })
+      } else if (input.message) {
+        conversation.push({ role: 'user', content: input.message })
+      }
 
-      onProgress(20)
-
+      // Simulate conversation rounds
       for (let round = 0; round < maxRounds; round++) {
-        onLog({
-          level: 'INFO',
-          message: `Starting conversation round ${round + 1}/${maxRounds}`,
-          timestamp: new Date()
-        })
-
-        for (let agentIndex = 0; agentIndex < agents.length; agentIndex++) {
-          const agent = agents[agentIndex]
-          
-          onLog({
-            level: 'INFO',
-            message: `Agent ${agent.name} is responding...`,
-            timestamp: new Date()
-          })
-
-          // Prepare messages for this agent
-          const messages: CerebrasMessage[] = [
+        for (const agent of agents) {
+          // Add agent context
+          const agentMessages: CerebrasMessage[] = [
             {
               role: 'system',
-              content: agent.system_message || `You are ${agent.name}, ${agent.role}.`
-            }
+              content: agent.system_message || `You are ${agent.name}, a ${agent.role}.`
+            },
+            ...conversation.map(msg => ({
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content
+            }))
           ]
 
-          // Add conversation history
-          conversation.forEach(turn => {
-            messages.push({
-              role: turn.agent === agent.name ? 'assistant' : 'user',
-              content: `${turn.agent}: ${turn.content}`
-            })
-          })
-
-          // Add initial input if first round
-          if (round === 0 && agentIndex === 0) {
-            messages.push({
-              role: 'user',
-              content: typeof input === 'string' ? input : JSON.stringify(input)
-            })
-          }
-
-          // Get response from Cerebras
-          const response = await cerebrasClient.createCompletion(messages, {
-            model: configuration.model,
-            temperature: configuration.temperature,
-            maxTokens: configuration.max_tokens || 1024
-          })
-
+          // Get agent response
+          const response = await cerebrasClient.createCompletion(agentMessages)
           const agentResponse = response.choices[0].message.content
 
           conversation.push({
-            round: round + 1,
-            agent: agent.name,
-            role: agent.role,
-            content: agentResponse,
-            tokens: response.usage.completion_tokens,
-            cost: cerebrasClient.calculateCost(response.usage)
+            role: 'assistant',
+            content: `${agent.name}: ${agentResponse}`
           })
-
-          onLog({
-            level: 'INFO',
-            message: `${agent.name} responded: ${agentResponse.substring(0, 100)}...`,
-            timestamp: new Date()
-          })
-
-          // Check if conversation should terminate
-          if (agentResponse.toLowerCase().includes('conversation complete') ||
-              agentResponse.toLowerCase().includes('terminate')) {
-            onLog({
-              level: 'INFO',
-              message: 'Conversation terminated by agent decision',
-              timestamp: new Date()
-            })
-            break
-          }
         }
-
-        onProgress(20 + ((round + 1) / maxRounds) * 70)
       }
-
-      // Calculate totals
-      const totalTokens = conversation.reduce((sum, turn) => sum + turn.tokens, 0)
-      const totalCost = conversation.reduce((sum, turn) => sum + turn.cost, 0)
-
-      onProgress(100)
 
       return {
         success: true,
         output: {
           conversation,
-          summary: `Multi-agent conversation completed with ${conversation.length} turns`,
-          provider: 'cerebras',
-          model: configuration.model || 'llama-4-scout-17b-16e-instruct',
-          total_rounds: Math.ceil(conversation.length / agents.length)
+          final_response: conversation[conversation.length - 1]?.content || 'No response generated'
         },
-        tokensUsed: totalTokens,
-        cost: totalCost
+        metadata: {
+          agents_used: agents.length,
+          conversation_rounds: maxRounds,
+          total_messages: conversation.length
+        }
       }
-
     } catch (error) {
-      onLog({
-        level: 'ERROR',
-        message: `Cerebras AutoGen execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        timestamp: new Date()
-      })
-
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        logs: [`Error: ${error instanceof Error ? error.message : 'Unknown error'}`]
       }
     }
   }
@@ -702,139 +494,5 @@ export class CerebrasAutoGenExecutor implements AgentFramework {
       },
       required: ['agents']
     }
-  }
-}
-
-// Update: lib/execution/execution-engine.ts - Add Cerebras support
-// Add these imports at the top:
-import { CerebrasPoweredExecutor } from './frameworks/cerebras-powered'
-import { CerebrasAutoGenExecutor } from './frameworks/cerebras-autogen'
-
-// In the initializeExecutors method, add:
-private initializeExecutors() {
-  // Existing executors...
-  this.executors.set('autogen', new AutoGenExecutor())
-  this.executors.set('crewai', new CrewAIExecutor())
-  this.executors.set('autogpt', new AutoGPTExecutor())
-  this.executors.set('babyagi', new BabyAGIExecutor())
-  this.executors.set('langgraph', new LangGraphExecutor())
-  
-  // Add Cerebras-powered executors
-  this.executors.set('cerebras', new CerebrasPoweredExecutor())
-  this.executors.set('cerebras-autogen', new CerebrasAutoGenExecutor())
-}
-
-// app/api/ai-providers/cerebras/models/route.ts
-import { NextResponse } from 'next/server'
-import { CerebrasClient } from '@/lib/ai-providers/cerebras-client'
-
-export async function GET() {
-  try {
-    if (!process.env.CEREBRAS_API_KEY) {
-      return NextResponse.json(
-        { error: 'Cerebras API key not configured' },
-        { status: 503 }
-      )
-    }
-
-    const client = new CerebrasClient({
-      apiKey: process.env.CEREBRAS_API_KEY
-    })
-
-    const models = await client.getAvailableModels()
-    
-    return NextResponse.json({
-      provider: 'cerebras',
-      models: models.map(model => ({
-        id: model,
-        name: model,
-        description: getCerebrasModelDescription(model),
-        context_window: getCerebrasContextWindow(model),
-        max_tokens: getCerebrasMaxTokens(model)
-      }))
-    })
-
-  } catch (error) {
-    console.error('Error fetching Cerebras models:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch Cerebras models' },
-      { status: 500 }
-    )
-  }
-}
-
-function getCerebrasModelDescription(model: string): string {
-  const descriptions: Record<string, string> = {
-    'llama-4-scout-17b-16e-instruct': 'Latest Llama 4 Scout model with 17B parameters - Ultra-fast inference',
-    'llama-3.1-8b-instruct': 'Llama 3.1 8B - Balanced performance and speed',
-    'llama-3.1-70b-instruct': 'Llama 3.1 70B - High-performance large model',
-    'mixtral-8x7b-instruct': 'Mixtral 8x7B - Mixture of experts architecture',
-    'gemma-7b-it': 'Google Gemma 7B - Instruction-tuned model'
-  }
-  return descriptions[model] || 'High-performance model with ultra-fast inference'
-}
-
-function getCerebrasContextWindow(model: string): number {
-  const contextWindows: Record<string, number> = {
-    'llama-4-scout-17b-16e-instruct': 16384,
-    'llama-3.1-8b-instruct': 8192,
-    'llama-3.1-70b-instruct': 8192,
-    'mixtral-8x7b-instruct': 32768,
-    'gemma-7b-it': 8192
-  }
-  return contextWindows[model] || 8192
-}
-
-function getCerebrasMaxTokens(model: string): number {
-  const maxTokens: Record<string, number> = {
-    'llama-4-scout-17b-16e-instruct': 8192,
-    'llama-3.1-8b-instruct': 4096,
-    'llama-3.1-70b-instruct': 4096,
-    'mixtral-8x7b-instruct': 4096,
-    'gemma-7b-it': 4096
-  }
-  return maxTokens[model] || 4096
-}
-
-// app/api/ai-providers/cerebras/test/route.ts
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { CerebrasClient } from '@/lib/ai-providers/cerebras-client'
-
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession()
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { message, model, api_key } = await request.json()
-
-    const client = new CerebrasClient({
-      apiKey: api_key || process.env.CEREBRAS_API_KEY!,
-      model: model || 'llama-4-scout-17b-16e-instruct'
-    })
-
-    const response = await client.createCompletion([
-      {
-        role: 'user',
-        content: message || 'Hello! Please respond with a brief message to test the connection.'
-      }
-    ])
-
-    return NextResponse.json({
-      success: true,
-      response: response.choices[0].message.content,
-      model: response.model,
-      usage: response.usage,
-      cost: client.calculateCost(response.usage)
-    })
-
-  } catch (error) {
-    console.error('Cerebras test error:', error)
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
   }
 }

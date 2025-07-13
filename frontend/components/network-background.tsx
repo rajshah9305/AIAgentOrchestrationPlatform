@@ -3,7 +3,7 @@
 import { useRef, useMemo } from "react"
 import { useFrame } from "@react-three/fiber"
 import { Points, PointMaterial, Line } from "@react-three/drei"
-import type * as THREE from "three"
+import * as THREE from "three"
 
 export function NetworkBackground() {
   const pointsRef = useRef<THREE.Points>(null)
@@ -31,8 +31,8 @@ export function NetworkBackground() {
 
   // Generate connections between nearby nodes
   const connections = useMemo(() => {
-    const lines = []
-    const nodePositions = []
+    const lines: [THREE.Vector3, THREE.Vector3][] = []
+    const nodePositions: [number, number, number][] = []
 
     for (let i = 0; i < nodes.positions.length; i += 3) {
       nodePositions.push([nodes.positions[i], nodes.positions[i + 1], nodes.positions[i + 2]])
@@ -47,7 +47,9 @@ export function NetworkBackground() {
         )
 
         if (distance < 5 && Math.random() > 0.7) {
-          lines.push([nodePositions[i], nodePositions[j]])
+          const start = new THREE.Vector3(nodePositions[i][0], nodePositions[i][1], nodePositions[i][2])
+          const end = new THREE.Vector3(nodePositions[j][0], nodePositions[j][1], nodePositions[j][2])
+          lines.push([start, end])
         }
       }
     }

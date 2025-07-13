@@ -1,67 +1,79 @@
-import { beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 import { PrismaClient } from '@prisma/client'
+import { beforeAll, afterAll, beforeEach } from 'vitest'
 
-// Test database client
 const prisma = new PrismaClient()
 
-// Global test setup
+// Test database setup
 beforeAll(async () => {
-  // Set test environment
-  process.env.NODE_ENV = 'test'
-  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/test_db'
-  process.env.REDIS_URL = process.env.TEST_REDIS_URL || 'redis://localhost:6379'
-  
   // Connect to test database
   await prisma.$connect()
   
-  // Clean database
+  // Clean database before all tests
   await cleanDatabase()
 })
 
-// Clean up after all tests
 afterAll(async () => {
+  // Clean database after all tests
   await cleanDatabase()
+  
+  // Disconnect from database
   await prisma.$disconnect()
 })
 
-// Clean database before each test
 beforeEach(async () => {
+  // Clean database before each test
   await cleanDatabase()
 })
 
-// Clean database after each test
-afterEach(async () => {
-  await cleanDatabase()
-})
-
-// Helper function to clean database
 async function cleanDatabase() {
-  const tables = [
-    'execution_logs',
-    'executions',
-    'agents',
-    'saved_configurations',
-    'audit_logs',
-    'api_keys',
-    'api_key_usage',
-    'users',
-  ]
-  
-  for (const table of tables) {
-    try {
-      await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${table}" CASCADE;`)
-    } catch (error) {
-      // Table might not exist, ignore error
-    }
-  }
+  // Delete all data in reverse order of dependencies
+  await prisma.executionLog.deleteMany()
+  await prisma.execution.deleteMany()
+  await prisma.agent.deleteMany()
+  await prisma.savedConfiguration.deleteMany()
+  await prisma.webhookLog.deleteMany()
+  await prisma.webhook.deleteMany()
+  await prisma.apiKey.deleteMany()
+  await prisma.auditLog.deleteMany()
+  await prisma.user.deleteMany()
+  await prisma.framework.deleteMany()
 }
 
-// Mock environment variables for testing
-process.env.JWT_SECRET = 'test-jwt-secret'
-process.env.CEREBRAS_API_KEY = 'test-cerebras-key'
-process.env.CORS_ORIGIN = 'http://localhost:3000'
-process.env.RATE_LIMIT_WINDOW_MS = '900000'
-process.env.RATE_LIMIT_MAX_REQUESTS = '100'
-
 // Export test utilities
+export const createTestUser = async (data: any = {}) => {
+  return await prisma.user.create({
+    data: {
+      email: `test-${Date.now()}@example.com`,
+      name: 'Test User',
+      role: 'USER',
+      ...data
+    }
+  })
+}
+
+export const createTestAgent = async (userId: string, data: any = {}) => {
+  return await prisma.agent.create({
+    data: {
+      name: `Test Agent ${Date.now()}`,
+      description: 'Test agent for testing',
+      framework: 'AUTOGEN',
+      configuration: {},
+      userId,
+      ...data
+    }
+  })
+}
+
+export const createTestExecution = async (agentId: string, userId: string, data: any = {}) => {
+  return await prisma.execution.create({
+    data: {
+      agentId,
+      userId,
+      status: 'PENDING',
+      input: {},
+      ...data
+    }
+  })
+}
+
 export { prisma } 
