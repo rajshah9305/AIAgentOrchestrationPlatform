@@ -44,7 +44,7 @@
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
     "next-auth": "^4.24.11",
-    "node-cron": "^3.0.3",
+    "node-cron": "^4.2.1",
     "nodemailer": "^6.10.1",
     "redis": "^4.7.1",
     "socket.io": "^4.8.1",
